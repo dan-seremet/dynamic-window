@@ -37,34 +37,49 @@ impl std::error::Error for StatusParseErr {}
 impl FromStr for Status {
     type Err = StatusParseErr;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "MATCH" => Ok(Self::Match),
-            "NO_MATCH" => Ok(Self::NoMatch),
-            "NO_DATA" => Ok(Self::NoData),
-            "NO_SOUND" => Ok(Self::NoSound),
-            other => Err(StatusParseErr { status_str: other.to_owned() })
+        match s.to_uppercase().as_str() {
+            "0" | "MATCH" => Ok(Self::Match),
+            "1" | "NO_MATCH" | "NOMATCH" => Ok(Self::NoMatch),
+            "2" | "NO_DATA" | "NODATA" => Ok(Self::NoData),
+            "3" | "NO_SOUND" | "NOSOUND" => Ok(Self::NoSound),
+            _ => Err(StatusParseErr { status_str: s.to_owned() })
+        }
+    }
+}
+
+impl std::convert::TryFrom<u32> for Status {
+    type Error = StatusParseErr;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Match),
+            1 => Ok(Self::NoMatch),
+            2 => Ok(Self::NoData),
+            3 => Ok(Self::NoSound),
+            _ => Err(StatusParseErr { status_str: value.to_string() })
         }
     }
 }
 
 pub struct ViewingPeriod {
-    status: Status,
-    user_id: u32,
-    query_time: DateTime<Utc>,
-    time_in_file: DateTime<Utc>,
-    duration: Duration,
+    pub(crate) provider: Option<String>,
+    pub(crate) status: Status,
+    pub(crate) user_id: String,
+    pub(crate) query_time: DateTime<Utc>,
+    pub(crate) time_in_file: DateTime<Utc>,
+    pub(crate) duration: Duration,
 
-    stream_id: Option<String>,
-    entry_id: Option<String>,
-    ber: f32,
-    valid: bool
+    pub(crate) stream_id: Option<String>,
+    pub(crate) entry_id: Option<String>,
+    pub(crate) ber: f32,
+    pub(crate) valid: bool
 }
 
 impl Default for ViewingPeriod {
     fn default() -> Self {
         ViewingPeriod {
+            provider: None,
             status: Status::NoMatch,
-            user_id: 0,
+            user_id: "NO_USER".to_string(),
             query_time: Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap(),
             time_in_file: Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap(),
             duration: Duration::seconds(0),
