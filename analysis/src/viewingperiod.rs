@@ -2,6 +2,7 @@ use std::{str::FromStr, fmt::Debug};
 
 use chrono::{DateTime, Duration, Utc, TimeZone};
 
+#[derive(PartialEq)]
 pub enum Status {
     Match,
     NoMatch,
@@ -18,6 +19,12 @@ impl std::fmt::Display for Status {
             Self::NoData => "NO_DATA"
         };
         write!(f, "{}", repr)
+    }
+}
+
+impl std::fmt::Debug for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -60,6 +67,7 @@ impl std::convert::TryFrom<u32> for Status {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct ViewingPeriod {
     pub(crate) provider: Option<String>,
     pub(crate) status: Status,

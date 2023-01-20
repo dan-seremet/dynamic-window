@@ -28,7 +28,12 @@ fn read(path: impl AsRef<Path>) -> Vec<ViewingPeriod> {
 
     let file = fs::File::open(&path)
         .expect("failed to open file");
-    let reader = BufReader::new(file);
+
+    return read_periods(file, sep);
+}
+
+fn read_periods(source: impl std::io::Read, sep: char) -> Vec<ViewingPeriod> {
+    let reader = BufReader::new(source);
     let mut lines_iter = reader.lines();
     let header_line = lines_iter.next()
         .expect("expected table to have at least header")
@@ -82,7 +87,7 @@ fn line_to_period(line: &str, header: &Header, separator: char) -> ViewingPeriod
     let mut offset: Option<Duration> = None;
     let mut end_time: Option<DateTime<Utc>> = None;
 
-    for (key, &raw_value) in line.split(separator).zip(header.iter()) {
+    for (&key, raw_value) in header.iter().zip(line.split(separator)) {
 
         let value = raw_value.trim().trim_matches(removable_chars);
         match key {
@@ -106,7 +111,7 @@ fn line_to_period(line: &str, header: &Header, separator: char) -> ViewingPeriod
             "offset" => offset = Some(duration_from_millis(value)),
             "offset_s" | "OFFSET" => offset = Some(duration_from_seconds(value)),
             "endTime" | "stop_ts" | "END" => end_time = Some(parse_datetime_str(value)),
-            _ => println!("unrecognised field {}", key)
+            _ => println!("unrecognised field key {}", key)
         };
 
         if let Some(offset_val) = offset {
@@ -153,5 +158,35 @@ mod test {
             parse_datetime_str(string),
             datetime
         );
+    }
+
+    #[test]
+    fn test_parse_match() {
+        let header = "id,status,period_id,stream_id,timeInFile,tStartMsec,tEndMsec,durationMsec,bitErrorRate,nMatches,userID,valid,created,client_query_id,published_ts";
+        let period_line = "5262783672,0,1672616922000|8d542b02585730ca24c2b96845ef9566|329,329,1672617736352,1672617824041,1672617836969,12928,0.247597,2,169808,1,2023-01-02 04:43:05,156521803,1672641842709";
+
+        let entire_file = format!("{}\n{}", header, period_line);
+        println!("{}", entire_file);
+
+        let expected_period = ViewingPeriod {
+            provider: None,
+            status: Status::Match,
+            user_id: "169808".to_string(),
+            query_time: Utc.with_ymd_and_hms(2023, 1, 2, 0, 3, 44).unwrap() + Duration::milliseconds(41),
+            time_in_file: Utc.with_ymd_and_hms(2023, 1, 2, 0, 2, 16).unwrap() + Duration::milliseconds(352),
+            duration: Duration::milliseconds(12928),
+            stream_id: Some("329".to_string()),
+            entry_id: Some("1672616922000|8d542b02585730ca24c2b96845ef9566|329".to_string()),
+            ber: 0.247597,
+            valid: true
+        };
+
+        let all_periods = read_periods(entire_file.as_bytes(), ',');
+        assert_eq!(all_periods.len(), 1);
+
+        let parsed_period = all_periods.first()
+            .expect("expected at least one period to be read");
+
+        assert_eq!(&expected_period, parsed_period);
     }
 }
